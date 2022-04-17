@@ -14,13 +14,24 @@ import (
 
 type BartenderService struct {
 	lcu           client.Client `json:client`
+	isLocked      bool          `json:isLocked`
 	hasRandomized bool          `json:hasRandomized`
 }
 
 func (this *BartenderService) Listen() {
 	for range time.Tick(time.Millisecond * 500) {
-		if this.isChampionLocked() {
-			this.selectRandomChampionSkin()
+		if this.isChampionLocked() && !this.isLocked {
+			this.isLocked = true
+			// TODO: GET CHAMPION INFO FROM LEAGUE API https://ddragon.leagueoflegends.com/cdn/12.7.1/data/en_US/champion.json
+			// TODO: GET SKIN INFO FROM LEAGUE API - GET SKIN INFO API INFORMATION (XD)
+			// pickable-skin-ids returns a list of all of the skins you own. I haven't tested to make sure that it doesn't return banned champion skin ids.
+			// Chromas are just skins, internally, as far as I know. That means we might want to consider additional logic or data collection to allow for
+			// Skin and then chroma randomization. Otherwise skins with more chromas will have a bigger section of the RNG.
+			err := this.selectRandomChampionSkin()
+			this.isLocked = false
+			if err != nil {
+				fmt.Println(err)
+			}
 		}
 	}
 }
@@ -39,33 +50,28 @@ func (this *BartenderService) isChampionLocked() bool {
 		return false
 	}
 
-	// TODO: GET CHAMPION INFO FROM LEAGUE API https://ddragon.leagueoflegends.com/cdn/12.7.1/data/en_US/champion.json
-	// TODO: GET SKIN INFO FROM LEAGUE API - GET SKIN INFO API INFORMATION (XD)
-	// pickable-skin-ids returns a list of all of the skins you own. I haven't tested to make sure that it doesn't return banned champion skin ids.
-	// Chromas are just skins, internally, as far as I know. That means we might want to consider additional logic or data collection to allow for
-	// Skin and then chroma randomization. Otherwise skins with more chromas will have a bigger section of the RNG.
-	err := this.selectRandomChampionSkin()
-	if err != nil {
-		return false
-	}
-
 	return true
 }
 
 func (this *BartenderService) canRandomize(body string) bool {
 	if strings.Contains(body, "404") {
-		fmt.Println("We aren't in champ select, returning false!")
+		//fmt.Println("We aren't in champ select, returning false!")
 		this.hasRandomized = false
 		return false
 	}
 
 	if strings.EqualFold(body, "0") {
-		fmt.Println("We haven't selected a champion, returning false!")
+		//fmt.Println("We haven't selected a champion, returning false!")
 		return false
 	}
 
 	if this.hasRandomized {
-		fmt.Println("We have already randomized, returning false")
+		//fmt.Println("We have already randomized, returning false")
+		return false
+	}
+
+	if this.isLocked {
+		//fmt.Println("We are randomizing, returning false")
 		return false
 	}
 
@@ -184,17 +190,17 @@ func (this *BartenderService) executeLCUPatchRequest(endpoint string, req string
 		return err
 	}
 
-	resp, err := cu.HttpClient.Do(request)
+	_, err = cu.HttpClient.Do(request)
 	if err != nil {
 		return err
 	}
-	fmt.Println(resp)
+	//fmt.Println(resp)
 
 	return nil
 }
 
 func (this *BartenderService) executeLCUGetRequest(endpoint string) string {
-	fmt.Println("Executing GET request:" + endpoint)
+	//fmt.Println("Executing GET request:" + endpoint)
 	url, _ := this.lcu.URL(endpoint)
 	raw, _ := this.lcu.Get(url)
 
@@ -204,7 +210,7 @@ func (this *BartenderService) executeLCUGetRequest(endpoint string) string {
 	return body
 }
 
-func NewBartenderService(client client.Client) (bartenderService BartenderService) {
+func BuildBartenderService(client client.Client) (bartenderService BartenderService) {
 	bartenderService.lcu = client
 	return bartenderService
 }

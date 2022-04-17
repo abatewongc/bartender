@@ -15,7 +15,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	bartenderService := service.NewBartenderService(client)
+	bartenderService := service.BuildBartenderService(client)
 	bartenderService.Listen()
 
 	return
