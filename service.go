@@ -13,6 +13,12 @@ import (
 	cu "github.com/coltiebaby/bastion/client/clientutil"
 )
 
+type SkinInfo struct {
+	ChampionId float64 `json:"championId"`
+	SkinName   string  `json:"skinName"`
+	SkinId     float64 `json:"skinId"`
+}
+
 type service struct {
 	Lcu           client.Client `json:"client"`
 	IsLocked      bool          `json:"isLocked"`
@@ -163,17 +169,7 @@ func (svc *service) isSelectable(child *gabs.Container) bool {
 	}
 
 	unlocked, _ := child.Path("unlocked").Data().(bool)
-	if !unlocked {
-		return false
-	}
-
-	return true
-}
-
-type SkinInfo struct {
-	ChampionId float64 `json:championId`
-	SkinName   string  `json:skinName`
-	SkinId     float64 `json:skinId`
+	return unlocked
 }
 
 func (svc *service) getPatchRequest(selected int) (string, error) {
