@@ -21,20 +21,50 @@ type SkinInfo struct {
 }
 
 type service struct {
-	lcu           client.Client
-	isLocked      bool
-	hasRandomized bool
+	tickrate       time.Duration
+	inGameTickrate time.Duration
+	skinBlacklist  map[float64]struct{} // Slice of skin IDs
+	lcu            client.Client
+	isLocked       bool
+	hasRandomized  bool
 }
 
-func New(client client.Client) *service {
-	return &service{
-		lcu: client,
+func New(client client.Client, options ...func(*service)) *service {
+	svc := &service{
+		tickrate:       time.Millisecond * 500,
+		inGameTickrate: time.Minute * 8,
+		skinBlacklist:  map[float64]struct{}{},
+		lcu:            client,
+	}
+
+	for _, option := range options {
+		option(svc)
+	}
+
+	return svc
+}
+
+func WithTickrate(t time.Duration) func(*service) {
+	return func(svc *service) {
+		svc.tickrate = t
+	}
+}
+
+func WithGameTickrate(t time.Duration) func(*service) {
+	return func(svc *service) {
+		svc.inGameTickrate = t
+	}
+}
+
+func WithBlacklist(bl map[float64]struct{}) func(*service) {
+	return func(svc *service) {
+		svc.skinBlacklist = bl
 	}
 }
 
 func (svc *service) Listen() {
 	fmt.Print("Checking if champion is picked...")
-	for range time.Tick(time.Millisecond * 500) {
+	for range time.Tick(svc.tickrate) {
 		if svc.isChampionLocked() && !svc.isLocked {
 			svc.isLocked = true
 			// TODO: GET CHAMPION INFO FROM LEAGUE API https://ddragon.leagueoflegends.com/cdn/12.7.1/data/en_US/champion.json
@@ -83,8 +113,6 @@ func (svc *service) selectRandomChampionSkin() error {
 	// ask LCU for the skin carousel
 	skins := svc.executeLCUGetRequest(`/lol-champ-select/v1/skin-carousel-skins`)
 
-	// load blacklisted skins from config
-
 	selected, err := svc.selectRandomChampionSkinFromList(skins)
 	if err != nil {
 		return err
@@ -115,13 +143,24 @@ func (svc *service) selectRandomChampionSkinFromList(skins string) (int, error) 
 	skinInfo = svc.extractSkins(blob, skinInfo)
 
 	if len(skinInfo) < 1 {
-		return -1, errors.New("no skins for champion! svc is most definitely a bug, please contact the maintainers")
+		return -1, errors.New("no skins for champion! this is most definitely a bug, please contact the maintainers")
 	}
 
-	var skin SkinInfo = skinInfo[rand.Intn(len(skinInfo))]
-	if len(skin.Chromas) > 0 {
-		var skinAndChromas []SkinInfo = append(skin.Chromas, skin)
-		skin = skinAndChromas[rand.Intn(len(skinAndChromas))]
+	// Reroll until a skin not in the blacklist is rolled
+	var skin SkinInfo
+	for {
+		skin = skinInfo[rand.Intn(len(skinInfo))]
+
+		// Reroll random chroma
+		if len(skin.Chromas) > 0 {
+			var skinAndChromas []SkinInfo = append(skin.Chromas, skin)
+			skin = skinAndChromas[rand.Intn(len(skinAndChromas))]
+		}
+
+		if _, exists := svc.skinBlacklist[skin.SkinId]; !exists {
+			break
+		}
+
 	}
 
 	return int(skin.SkinId), nil
@@ -183,7 +222,7 @@ func (svc *service) getPatchRequest(selected int) (string, error) {
 }
 
 func (svc *service) executeLCUPatchRequest(endpoint string, req string) error {
-	fmt.Printf("Executing PATCH request: %s with payload %s\n", endpoint, req)
+	fmt.Printf("\nExecuting PATCH request: %s with payload %s\n", endpoint, req)
 	url, _ := svc.lcu.URL(endpoint)
 
 	request, err := svc.lcu.NewRequest("PATCH", url, []byte(req))
@@ -209,9 +248,4 @@ func (svc *service) executeLCUGetRequest(endpoint string) string {
 	body := string(rawBody)
 
 	return body
-}
-
-func Buildservice(client client.Client) (service service) {
-	service.lcu = client
-	return service
 }
