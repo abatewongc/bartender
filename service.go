@@ -13,23 +13,29 @@ import (
 	cu "github.com/coltiebaby/bastion/client/clientutil"
 )
 
-type Service struct {
-	lcu           client.Client `json:client`
-	isLocked      bool          `json:isLocked`
-	hasRandomized bool          `json:hasRandomized`
+type service struct {
+	Lcu           client.Client `json:"client"`
+	IsLocked      bool          `json:"isLocked"`
+	HasRandomized bool          `json:"hasRandomized"`
 }
 
-func (svc *Service) Listen() {
+func New(client client.Client) *service {
+	return &service{
+		Lcu: client,
+	}
+}
+
+func (svc *service) Listen() {
 	for range time.Tick(time.Millisecond * 500) {
-		if svc.isChampionLocked() && !svc.isLocked {
-			svc.isLocked = true
+		if svc.isChampionLocked() && !svc.IsLocked {
+			svc.IsLocked = true
 			// TODO: GET CHAMPION INFO FROM LEAGUE API https://ddragon.leagueoflegends.com/cdn/12.7.1/data/en_US/champion.json
 			// TODO: GET SKIN INFO FROM LEAGUE API - GET SKIN INFO API INFORMATION (XD)
 			// pickable-skin-ids returns a list of all of the skins you own. I haven't tested to make sure that it doesn't return banned champion skin ids.
 			// Chromas are just skins, internally, as far as I know. That means we might want to consider additional logic or data collection to allow for
 			// Skin and then chroma randomization. Otherwise skins with more chromas will have a bigger section of the RNG.
 			err := svc.selectRandomChampionSkin()
-			svc.isLocked = false
+			svc.IsLocked = false
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -38,26 +44,21 @@ func (svc *Service) Listen() {
 }
 
 // GET /lol-champ-select/v1/current-champion
-func (svc *Service) isChampionLocked() bool {
+func (svc *service) isChampionLocked() bool {
 	fmt.Print("Checking if champion is picked... ")
-	url, _ := svc.lcu.URL(`/lol-champ-select/v1/current-champion`)
-	raw, _ := svc.lcu.Get(url)
+	url, _ := svc.Lcu.URL(`/lol-champ-select/v1/current-champion`)
+	raw, _ := svc.Lcu.Get(url)
 
 	rawBody, _ := io.ReadAll(raw.Body)
 	body := string(rawBody)
 
-	canRandomize := svc.canRandomize(body)
-	if !canRandomize {
-		return false
-	}
-
-	return true
+	return svc.canRandomize(body)
 }
 
-func (svc *Service) canRandomize(body string) bool {
+func (svc *service) canRandomize(body string) bool {
 	if strings.Contains(body, "404") {
 		//fmt.Println("We aren't in champ select, returning false!")
-		svc.hasRandomized = false
+		svc.HasRandomized = false
 		return false
 	}
 
@@ -66,12 +67,12 @@ func (svc *Service) canRandomize(body string) bool {
 		return false
 	}
 
-	if svc.hasRandomized {
+	if svc.HasRandomized {
 		//fmt.Println("We have already randomized, returning false")
 		return false
 	}
 
-	if svc.isLocked {
+	if svc.IsLocked {
 		//fmt.Println("We are randomizing, returning false")
 		return false
 	}
@@ -79,7 +80,7 @@ func (svc *Service) canRandomize(body string) bool {
 	return true
 }
 
-func (svc *Service) selectRandomChampionSkin() error {
+func (svc *service) selectRandomChampionSkin() error {
 	// ask LCU for the skin carousel
 	skins := svc.executeLCUGetRequest(`/lol-champ-select/v1/skin-carousel-skins`)
 	selected, err := svc.selectRandomChampionSkinFromList(skins)
@@ -97,11 +98,11 @@ func (svc *Service) selectRandomChampionSkin() error {
 	if err != nil {
 		return err
 	}
-	svc.hasRandomized = true
+	svc.HasRandomized = true
 	return nil
 }
 
-func (svc *Service) selectRandomChampionSkinFromList(skins string) (int, error) {
+func (svc *service) selectRandomChampionSkinFromList(skins string) (int, error) {
 	blob, err := gabs.ParseJSON([]byte(skins))
 
 	if err != nil {
@@ -118,7 +119,7 @@ func (svc *Service) selectRandomChampionSkinFromList(skins string) (int, error) 
 	return int(skinInfo[rand.Intn(len(skinInfo))].SkinId), nil
 }
 
-func (svc *Service) extractSkins(blob *gabs.Container, skinInfo []SkinInfo) []SkinInfo {
+func (svc *service) extractSkins(blob *gabs.Container, skinInfo []SkinInfo) []SkinInfo {
 	for _, child := range blob.Children() {
 		ok := svc.isSelectable(child)
 		if !ok {
@@ -150,7 +151,7 @@ func (svc *Service) extractSkins(blob *gabs.Container, skinInfo []SkinInfo) []Sk
 	return skinInfo
 }
 
-func (svc *Service) isSelectable(child *gabs.Container) bool {
+func (svc *service) isSelectable(child *gabs.Container) bool {
 	owned, ok := child.Path("ownership.owned").Data().(bool)
 	if !owned || !ok {
 		return false
@@ -175,18 +176,18 @@ type SkinInfo struct {
 	SkinId     float64 `json:skinId`
 }
 
-func (svc *Service) getPatchRequest(selected int) (string, error) {
+func (svc *service) getPatchRequest(selected int) (string, error) {
 	req := gabs.New()
 	req.Set(selected, "selectedSkinId")
 
 	return req.String(), nil
 }
 
-func (svc *Service) executeLCUPatchRequest(endpoint string, req string) error {
+func (svc *service) executeLCUPatchRequest(endpoint string, req string) error {
 	fmt.Printf("Executing PATCH request: %s with payload %s\n", endpoint, req)
-	url, _ := svc.lcu.URL(endpoint)
+	url, _ := svc.Lcu.URL(endpoint)
 
-	request, err := svc.lcu.NewRequest("PATCH", url, []byte(req))
+	request, err := svc.Lcu.NewRequest("PATCH", url, []byte(req))
 	if err != nil {
 		return err
 	}
@@ -200,18 +201,13 @@ func (svc *Service) executeLCUPatchRequest(endpoint string, req string) error {
 	return nil
 }
 
-func (svc *Service) executeLCUGetRequest(endpoint string) string {
+func (svc *service) executeLCUGetRequest(endpoint string) string {
 	//fmt.Println("Executing GET request:" + endpoint)
-	url, _ := svc.lcu.URL(endpoint)
-	raw, _ := svc.lcu.Get(url)
+	url, _ := svc.Lcu.URL(endpoint)
+	raw, _ := svc.Lcu.Get(url)
 
 	rawBody, _ := io.ReadAll(raw.Body)
 	body := string(rawBody)
 
 	return body
-}
-
-func BuildBartenderService(client client.Client) (bartenderService BartenderService) {
-	bartenderService.lcu = client
-	return bartenderService
 }

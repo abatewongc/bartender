@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bartender/internal/service"
+	"bartender"
 	"fmt"
 	"os"
 
@@ -16,8 +16,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	bartenderService := service.BuildBartenderService(client)
-	bartenderService.Listen()
-
-	return
+	app := bartender.New(client)
+	app.Listen()
 }
