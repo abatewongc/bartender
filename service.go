@@ -20,13 +20,20 @@ type SkinInfo struct {
 	Chromas    []SkinInfo `json:"chromas"`
 }
 
+type Config struct {
+	SkinBlacklist  map[string]struct{} // Slice of skin IDs
+	Tickrate       time.Duration
+	InGameTickrate time.Duration
+}
+
 type service struct {
+	cnf           Config
 	lcu           client.Client
 	isLocked      bool
 	hasRandomized bool
 }
 
-func New(client client.Client) *service {
+func New(cnf Config, client client.Client) *service {
 	return &service{
 		lcu: client,
 	}
@@ -34,7 +41,7 @@ func New(client client.Client) *service {
 
 func (svc *service) Listen() {
 	fmt.Print("Checking if champion is picked...")
-	for range time.Tick(time.Millisecond * 500) {
+	for range time.Tick(svc.cnf.Tickrate) {
 		if svc.isChampionLocked() && !svc.isLocked {
 			svc.isLocked = true
 			// TODO: GET CHAMPION INFO FROM LEAGUE API https://ddragon.leagueoflegends.com/cdn/12.7.1/data/en_US/champion.json
@@ -83,8 +90,6 @@ func (svc *service) selectRandomChampionSkin() error {
 	// ask LCU for the skin carousel
 	skins := svc.executeLCUGetRequest(`/lol-champ-select/v1/skin-carousel-skins`)
 
-	// load blacklisted skins from config
-
 	selected, err := svc.selectRandomChampionSkinFromList(skins)
 	if err != nil {
 		return err
@@ -104,7 +109,7 @@ func (svc *service) selectRandomChampionSkin() error {
 	return nil
 }
 
-func (svc *service) selectRandomChampionSkinFromList(skins string) (int, error) {
+func (svc *service) selectRandomChampionSkin(skins string) (int, error) {
 	blob, err := gabs.ParseJSON([]byte(skins))
 
 	if err != nil {
@@ -115,7 +120,7 @@ func (svc *service) selectRandomChampionSkinFromList(skins string) (int, error) 
 	skinInfo = svc.extractSkins(blob, skinInfo)
 
 	if len(skinInfo) < 1 {
-		return -1, errors.New("no skins for champion! svc is most definitely a bug, please contact the maintainers")
+		return -1, errors.New("no skins for champion! this is most definitely a bug, please contact the maintainers")
 	}
 
 	var skin SkinInfo = skinInfo[rand.Intn(len(skinInfo))]

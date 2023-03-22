@@ -4,6 +4,7 @@ import (
 	"bartender"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/coltiebaby/bastion/client/league"
 )
@@ -16,6 +17,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	app := bartender.New(client)
+	app := bartender.New(bartender.Config{
+		SkinBlacklist:  map[string]struct{}{},
+		Tickrate:       time.Millisecond * 500,
+		InGameTickrate: time.Minute * 8,
+	}, client)
 	app.Listen()
 }
