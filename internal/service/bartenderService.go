@@ -81,6 +81,9 @@ func (this *BartenderService) canRandomize(body string) bool {
 func (this *BartenderService) selectRandomChampionSkin() error {
 	// ask LCU for the skin carousel
 	skins := this.executeLCUGetRequest(`/lol-champ-select/v1/skin-carousel-skins`)
+
+	// load blacklisted skins from config
+
 	selected, err := this.selectRandomChampionSkinFromList(skins)
 	if err != nil {
 		return err
@@ -114,10 +117,16 @@ func (this *BartenderService) selectRandomChampionSkinFromList(skins string) (in
 		return -1, errors.New("no skins for champion! this is most definitely a bug, please contact the maintainers")
 	}
 
-	return int(skinInfo[rand.Intn(len(skinInfo))].SkinId), nil
+	var skin SkinInfo = skinInfo[rand.Intn(len(skinInfo))]
+	if len(skin.Chromas) > 0 {
+		var skinAndChromas []SkinInfo = append(skin.Chromas, skin)
+		skin = skinAndChromas[rand.Intn(len(skinAndChromas))]
+	}
+
+	return int(skin.SkinId), nil
 }
 
-func (this *BartenderService) extractSkins(blob *gabs.Container, skinInfo []SkinInfo) []SkinInfo {
+func (this *BartenderService) extractSkins(blob *gabs.Container, skinInfos []SkinInfo) []SkinInfo {
 	for _, child := range blob.Children() {
 		ok := this.isSelectable(child)
 		if !ok {
@@ -139,14 +148,15 @@ func (this *BartenderService) extractSkins(blob *gabs.Container, skinInfo []Skin
 			continue
 		}
 
-		si := SkinInfo{SkinId: id, ChampionId: championId, SkinName: name}
-		skinInfo = append(skinInfo, si)
-
+		var chromas []SkinInfo
 		if child.ExistsP("childSkins") {
-			skinInfo = this.extractSkins(child.Path("childSkins"), skinInfo)
+			chromas = this.extractSkins(child.Path("childSkins"), chromas)
 		}
+
+		si := SkinInfo{SkinId: id, ChampionId: championId, SkinName: name, Chromas: chromas}
+		skinInfos = append(skinInfos, si)
 	}
-	return skinInfo
+	return skinInfos
 }
 
 func (this *BartenderService) isSelectable(child *gabs.Container) bool {
@@ -172,6 +182,7 @@ type SkinInfo struct {
 	ChampionId float64 `json:championId`
 	SkinName   string  `json:skinName`
 	SkinId     float64 `json:skinId`
+	Chromas    []SkinInfo
 }
 
 func (this *BartenderService) getPatchRequest(selected int) (string, error) {

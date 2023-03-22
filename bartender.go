@@ -8,7 +8,6 @@ import (
 )
 
 func main() {
-
 	client, err := league.NewFromExisting()
 	if err != nil {
 		fmt.Println("Error: ", err)
