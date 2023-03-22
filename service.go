@@ -20,28 +20,51 @@ type SkinInfo struct {
 	Chromas    []SkinInfo `json:"chromas"`
 }
 
-type Config struct {
-	SkinBlacklist  map[float64]struct{} // Slice of skin IDs
-	Tickrate       time.Duration
-	InGameTickrate time.Duration
-}
-
 type service struct {
-	cnf           Config
-	lcu           client.Client
-	isLocked      bool
-	hasRandomized bool
+	tickrate       time.Duration
+	inGameTickrate time.Duration
+	skinBlacklist  map[float64]struct{} // Slice of skin IDs
+	lcu            client.Client
+	isLocked       bool
+	hasRandomized  bool
 }
 
-func New(cnf Config, client client.Client) *service {
-	return &service{
-		lcu: client,
+func New(client client.Client, options ...func(*service)) *service {
+	svc := &service{
+		tickrate:       time.Millisecond * 500,
+		inGameTickrate: time.Minute * 8,
+		skinBlacklist:  map[float64]struct{}{},
+		lcu:            client,
+	}
+
+	for _, option := range options {
+		option(svc)
+	}
+
+	return svc
+}
+
+func WithTickrate(t time.Duration) func(*service) {
+	return func(svc *service) {
+		svc.tickrate = t
+	}
+}
+
+func WithGameTickrate(t time.Duration) func(*service) {
+	return func(svc *service) {
+		svc.inGameTickrate = t
+	}
+}
+
+func WithBlacklist(bl map[float64]struct{}) func(*service) {
+	return func(svc *service) {
+		svc.skinBlacklist = bl
 	}
 }
 
 func (svc *service) Listen() {
 	fmt.Print("Checking if champion is picked...")
-	for range time.Tick(svc.cnf.Tickrate) {
+	for range time.Tick(svc.tickrate) {
 		if svc.isChampionLocked() && !svc.isLocked {
 			svc.isLocked = true
 			// TODO: GET CHAMPION INFO FROM LEAGUE API https://ddragon.leagueoflegends.com/cdn/12.7.1/data/en_US/champion.json
@@ -125,7 +148,6 @@ func (svc *service) selectRandomChampionSkinFromList(skins string) (int, error) 
 
 	// Reroll until a skin not in the blacklist is rolled
 	var skin SkinInfo
-
 	for {
 		skin = skinInfo[rand.Intn(len(skinInfo))]
 
@@ -135,9 +157,10 @@ func (svc *service) selectRandomChampionSkinFromList(skins string) (int, error) 
 			skin = skinAndChromas[rand.Intn(len(skinAndChromas))]
 		}
 
-		if _, exists := svc.cnf.SkinBlacklist[skin.SkinId]; !exists {
+		if _, exists := svc.skinBlacklist[skin.SkinId]; !exists {
 			break
 		}
+
 	}
 
 	return int(skin.SkinId), nil
@@ -199,7 +222,7 @@ func (svc *service) getPatchRequest(selected int) (string, error) {
 }
 
 func (svc *service) executeLCUPatchRequest(endpoint string, req string) error {
-	fmt.Printf("Executing PATCH request: %s with payload %s\n", endpoint, req)
+	fmt.Printf("\nExecuting PATCH request: %s with payload %s\n", endpoint, req)
 	url, _ := svc.lcu.URL(endpoint)
 
 	request, err := svc.lcu.NewRequest("PATCH", url, []byte(req))
