@@ -3,14 +3,14 @@ package bartender
 import (
 	"errors"
 	"fmt"
+	"github.com/Jeffail/gabs/v2"
 	"io"
 	"math/rand"
 	"strings"
 	"time"
 
-	"github.com/Jeffail/gabs/v2"
-	"github.com/coltiebaby/bastion/client"
-	cu "github.com/coltiebaby/bastion/client/clientutil"
+	"github.com/abatewongc/bartender-bastion/client"
+	cu "github.com/abatewongc/bartender-bastion/client/clientutil"
 )
 
 type SkinInfo struct {
