@@ -21,7 +21,7 @@ type SkinInfo struct {
 }
 
 type Config struct {
-	SkinBlacklist  map[string]struct{} // Slice of skin IDs
+	SkinBlacklist  map[float64]struct{} // Slice of skin IDs
 	Tickrate       time.Duration
 	InGameTickrate time.Duration
 }
@@ -109,7 +109,7 @@ func (svc *service) selectRandomChampionSkin() error {
 	return nil
 }
 
-func (svc *service) selectRandomChampionSkin(skins string) (int, error) {
+func (svc *service) selectRandomChampionSkinFromList(skins string) (int, error) {
 	blob, err := gabs.ParseJSON([]byte(skins))
 
 	if err != nil {
@@ -123,10 +123,21 @@ func (svc *service) selectRandomChampionSkin(skins string) (int, error) {
 		return -1, errors.New("no skins for champion! this is most definitely a bug, please contact the maintainers")
 	}
 
-	var skin SkinInfo = skinInfo[rand.Intn(len(skinInfo))]
-	if len(skin.Chromas) > 0 {
-		var skinAndChromas []SkinInfo = append(skin.Chromas, skin)
-		skin = skinAndChromas[rand.Intn(len(skinAndChromas))]
+	// Reroll until a skin not in the blacklist is rolled
+	var skin SkinInfo
+
+	for {
+		skin = skinInfo[rand.Intn(len(skinInfo))]
+
+		// Reroll random chroma
+		if len(skin.Chromas) > 0 {
+			var skinAndChromas []SkinInfo = append(skin.Chromas, skin)
+			skin = skinAndChromas[rand.Intn(len(skinAndChromas))]
+		}
+
+		if _, exists := svc.cnf.SkinBlacklist[skin.SkinId]; !exists {
+			break
+		}
 	}
 
 	return int(skin.SkinId), nil
@@ -214,9 +225,4 @@ func (svc *service) executeLCUGetRequest(endpoint string) string {
 	body := string(rawBody)
 
 	return body
-}
-
-func Buildservice(client client.Client) (service service) {
-	service.lcu = client
-	return service
 }

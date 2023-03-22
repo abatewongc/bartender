@@ -18,7 +18,7 @@ func main() {
 	}
 
 	app := bartender.New(bartender.Config{
-		SkinBlacklist:  map[string]struct{}{},
+		SkinBlacklist:  map[float64]struct{}{},
 		Tickrate:       time.Millisecond * 500,
 		InGameTickrate: time.Minute * 8,
 	}, client)
