@@ -1,6 +1,6 @@
 # bartender
 
-A quick go utility that randomizes your skin when you select a champion.
+A go utility that randomizes your skin when you select a champion.
 
 This may not work from source at the moment,  I had to redo how bastion retrieves the LeagueClientUx arguments on disk.
 
