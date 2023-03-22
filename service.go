@@ -14,9 +14,10 @@ import (
 )
 
 type SkinInfo struct {
-	ChampionId float64 `json:"championId"`
-	SkinName   string  `json:"skinName"`
-	SkinId     float64 `json:"skinId"`
+	ChampionId float64    `json:"championId"`
+	SkinName   string     `json:"skinName"`
+	SkinId     float64    `json:"skinId"`
+	Chromas    []SkinInfo `json:"chromas"`
 }
 
 type service struct {
@@ -81,6 +82,9 @@ func (svc *service) canRandomize(body string) bool {
 func (svc *service) selectRandomChampionSkin() error {
 	// ask LCU for the skin carousel
 	skins := svc.executeLCUGetRequest(`/lol-champ-select/v1/skin-carousel-skins`)
+
+	// load blacklisted skins from config
+
 	selected, err := svc.selectRandomChampionSkinFromList(skins)
 	if err != nil {
 		return err
@@ -111,13 +115,19 @@ func (svc *service) selectRandomChampionSkinFromList(skins string) (int, error) 
 	skinInfo = svc.extractSkins(blob, skinInfo)
 
 	if len(skinInfo) < 1 {
-		return -1, errors.New("no skins for champion! this is most definitely a bug, please contact the maintainers")
+		return -1, errors.New("no skins for champion! svc is most definitely a bug, please contact the maintainers")
 	}
 
-	return int(skinInfo[rand.Intn(len(skinInfo))].SkinId), nil
+	var skin SkinInfo = skinInfo[rand.Intn(len(skinInfo))]
+	if len(skin.Chromas) > 0 {
+		var skinAndChromas []SkinInfo = append(skin.Chromas, skin)
+		skin = skinAndChromas[rand.Intn(len(skinAndChromas))]
+	}
+
+	return int(skin.SkinId), nil
 }
 
-func (svc *service) extractSkins(blob *gabs.Container, skinInfo []SkinInfo) []SkinInfo {
+func (svc *service) extractSkins(blob *gabs.Container, skinInfos []SkinInfo) []SkinInfo {
 	for _, child := range blob.Children() {
 		ok := svc.isSelectable(child)
 		if !ok {
@@ -139,14 +149,15 @@ func (svc *service) extractSkins(blob *gabs.Container, skinInfo []SkinInfo) []Sk
 			continue
 		}
 
-		si := SkinInfo{SkinId: id, ChampionId: championId, SkinName: name}
-		skinInfo = append(skinInfo, si)
-
+		var chromas []SkinInfo
 		if child.ExistsP("childSkins") {
-			skinInfo = svc.extractSkins(child.Path("childSkins"), skinInfo)
+			chromas = svc.extractSkins(child.Path("childSkins"), chromas)
 		}
+
+		si := SkinInfo{SkinId: id, ChampionId: championId, SkinName: name, Chromas: chromas}
+		skinInfos = append(skinInfos, si)
 	}
-	return skinInfo
+	return skinInfos
 }
 
 func (svc *service) isSelectable(child *gabs.Container) bool {
@@ -184,10 +195,13 @@ func (svc *service) executeLCUPatchRequest(endpoint string, req string) error {
 	if err != nil {
 		return err
 	}
+	//fmt.Println(resp)
+
 	return nil
 }
 
 func (svc *service) executeLCUGetRequest(endpoint string) string {
+	//fmt.Println("Executing GET request:" + endpoint)
 	url, _ := svc.lcu.URL(endpoint)
 	raw, _ := svc.lcu.Get(url)
 
@@ -195,4 +209,9 @@ func (svc *service) executeLCUGetRequest(endpoint string) string {
 	body := string(rawBody)
 
 	return body
+}
+
+func Buildservice(client client.Client) (service service) {
+	service.lcu = client
+	return service
 }
