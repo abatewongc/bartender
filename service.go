@@ -20,29 +20,29 @@ type SkinInfo struct {
 }
 
 type service struct {
-	Lcu           client.Client `json:"client"`
-	IsLocked      bool          `json:"isLocked"`
-	HasRandomized bool          `json:"hasRandomized"`
+	lcu           client.Client
+	isLocked      bool
+	hasRandomized bool
 }
 
 func New(client client.Client) *service {
 	return &service{
-		Lcu: client,
+		lcu: client,
 	}
 }
 
 func (svc *service) Listen() {
 	fmt.Print("Checking if champion is picked...")
 	for range time.Tick(time.Millisecond * 500) {
-		if svc.isChampionLocked() && !svc.IsLocked {
-			svc.IsLocked = true
+		if svc.isChampionLocked() && !svc.isLocked {
+			svc.isLocked = true
 			// TODO: GET CHAMPION INFO FROM LEAGUE API https://ddragon.leagueoflegends.com/cdn/12.7.1/data/en_US/champion.json
 			// TODO: GET SKIN INFO FROM LEAGUE API - GET SKIN INFO API INFORMATION (XD)
 			// pickable-skin-ids returns a list of all of the skins you own. I haven't tested to make sure that it doesn't return banned champion skin ids.
 			// Chromas are just skins, internally, as far as I know. That means we might want to consider additional logic or data collection to allow for
 			// Skin and then chroma randomization. Otherwise skins with more chromas will have a bigger section of the RNG.
 			err := svc.selectRandomChampionSkin()
-			svc.IsLocked = false
+			svc.isLocked = false
 			if err != nil {
 				fmt.Println(err)
 			}
@@ -53,8 +53,8 @@ func (svc *service) Listen() {
 
 // GET /lol-champ-select/v1/current-champion
 func (svc *service) isChampionLocked() bool {
-	url, _ := svc.Lcu.URL(`/lol-champ-select/v1/current-champion`)
-	raw, _ := svc.Lcu.Get(url)
+	url, _ := svc.lcu.URL(`/lol-champ-select/v1/current-champion`)
+	raw, _ := svc.lcu.Get(url)
 
 	rawBody, _ := io.ReadAll(raw.Body)
 	body := string(rawBody)
@@ -63,28 +63,19 @@ func (svc *service) isChampionLocked() bool {
 }
 
 func (svc *service) canRandomize(body string) bool {
-	if strings.Contains(body, "404") {
-		//fmt.Println("We aren't in champ select, returning false!")
-		svc.HasRandomized = false
+	switch true {
+	case strings.Contains(body, "404"):
+		svc.hasRandomized = false
 		return false
-	}
-
-	if strings.EqualFold(body, "0") {
-		//fmt.Println("We haven't selected a champion, returning false!")
+	case strings.EqualFold(body, "0"):
 		return false
-	}
-
-	if svc.HasRandomized {
-		//fmt.Println("We have already randomized, returning false")
+	case svc.hasRandomized:
 		return false
-	}
-
-	if svc.IsLocked {
-		//fmt.Println("We are randomizing, returning false")
+	case svc.isLocked:
 		return false
+	default:
+		return true
 	}
-
-	return true
 }
 
 func (svc *service) selectRandomChampionSkin() error {
@@ -105,7 +96,7 @@ func (svc *service) selectRandomChampionSkin() error {
 	if err != nil {
 		return err
 	}
-	svc.HasRandomized = true
+	svc.hasRandomized = true
 	return nil
 }
 
@@ -182,9 +173,9 @@ func (svc *service) getPatchRequest(selected int) (string, error) {
 
 func (svc *service) executeLCUPatchRequest(endpoint string, req string) error {
 	fmt.Printf("Executing PATCH request: %s with payload %s\n", endpoint, req)
-	url, _ := svc.Lcu.URL(endpoint)
+	url, _ := svc.lcu.URL(endpoint)
 
-	request, err := svc.Lcu.NewRequest("PATCH", url, []byte(req))
+	request, err := svc.lcu.NewRequest("PATCH", url, []byte(req))
 	if err != nil {
 		return err
 	}
@@ -193,15 +184,12 @@ func (svc *service) executeLCUPatchRequest(endpoint string, req string) error {
 	if err != nil {
 		return err
 	}
-	//fmt.Println(resp)
-
 	return nil
 }
 
 func (svc *service) executeLCUGetRequest(endpoint string) string {
-	//fmt.Println("Executing GET request:" + endpoint)
-	url, _ := svc.Lcu.URL(endpoint)
-	raw, _ := svc.Lcu.Get(url)
+	url, _ := svc.lcu.URL(endpoint)
+	raw, _ := svc.lcu.Get(url)
 
 	rawBody, _ := io.ReadAll(raw.Body)
 	body := string(rawBody)
