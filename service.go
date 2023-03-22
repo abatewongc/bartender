@@ -32,6 +32,7 @@ func New(client client.Client) *service {
 }
 
 func (svc *service) Listen() {
+	fmt.Print("Checking if champion is picked...")
 	for range time.Tick(time.Millisecond * 500) {
 		if svc.isChampionLocked() && !svc.IsLocked {
 			svc.IsLocked = true
@@ -46,12 +47,12 @@ func (svc *service) Listen() {
 				fmt.Println(err)
 			}
 		}
+		fmt.Print(".")
 	}
 }
 
 // GET /lol-champ-select/v1/current-champion
 func (svc *service) isChampionLocked() bool {
-	fmt.Print("Checking if champion is picked... ")
 	url, _ := svc.Lcu.URL(`/lol-champ-select/v1/current-champion`)
 	raw, _ := svc.Lcu.Get(url)
 
