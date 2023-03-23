@@ -151,10 +151,7 @@ func (svc *service) selectRandomChampionSkin() error {
 		return err
 	}
 
-	// select the skin
-	req := gabs.New()
-	req.Set(selectedSkinId, "selectedSkinId")
-	err = svc.executeLCUPatchRequest(svc.endpoints.MySelection, req.String())
+	err = svc.selectSkin(selectedSkinId)
 	if err != nil {
 		return err
 	}
@@ -244,15 +241,18 @@ func (svc *service) isSelectable(child *gabs.Container) bool {
 	return unlocked
 }
 
-func (svc *service) executeLCUPatchRequest(endpoint string, req string) error {
+func (svc *service) selectSkin(skinId int) error {
 	var err error
-	fmt.Printf("\nExecuting PATCH request: %s with payload %s\n", svc.endpoints.MySelection, req)
+
+	req := gabs.New()
+	req.Set(skinId, "selectedSkinId")
 	url, err := svc.lcu.URL(svc.endpoints.MySelection)
 	if err != nil {
 		return err
 	}
 
-	request, err := svc.lcu.NewRequest("PATCH", url, []byte(req))
+	fmt.Printf("\nExecuting PATCH request: %s with payload %s\n", svc.endpoints.MySelection, req.String())
+	request, err := svc.lcu.NewRequest("PATCH", url, []byte(req.String()))
 	if err != nil {
 		return err
 	}
