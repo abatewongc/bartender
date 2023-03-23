@@ -82,7 +82,7 @@ func WithBlacklist(bl map[float64]struct{}) func(*service) {
 func (svc *service) Listen() {
 	fmt.Print("Checking if champion is picked...")
 	for range time.Tick(svc.tickrate) {
-		if svc.isChampionLocked() && !svc.isLocked {
+		if isLocked, err := svc.isChampionLocked(); isLocked && !svc.isLocked {
 			svc.isLocked = true
 			// TODO: GET CHAMPION INFO FROM LEAGUE API https://ddragon.leagueoflegends.com/cdn/12.7.1/data/en_US/champion.json
 			// TODO: GET SKIN INFO FROM LEAGUE API - GET SKIN INFO API INFORMATION (XD)
@@ -94,19 +94,32 @@ func (svc *service) Listen() {
 			if err != nil {
 				fmt.Println(err)
 			}
+		} else if err != nil {
+			fmt.Printf("\nerror encountered: %v\n", err)
 		}
 		fmt.Print(".")
 	}
 }
 
-func (svc *service) isChampionLocked() bool {
-	url, _ := svc.lcu.URL(svc.endpoints.CurrentChamp)
-	raw, _ := svc.lcu.Get(url)
+func (svc *service) isChampionLocked() (bool, error) {
+	url, err := svc.lcu.URL(svc.endpoints.CurrentChamp)
+	if err != nil {
+		return false, err
+	}
 
-	rawBody, _ := io.ReadAll(raw.Body)
-	body := string(rawBody)
+	resp, err := svc.lcu.Get(url)
+	if err != nil {
+		return false, err
+	} else if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return false, errors.New("bad response from server: " + resp.Status)
+	}
 
-	return svc.canRandomize(body)
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return false, err
+	}
+
+	return svc.canRandomize(string(body)), nil
 }
 
 func (svc *service) canRandomize(body string) bool {
@@ -260,14 +273,17 @@ func (svc *service) getSkinCarousel() (string, error) {
 		return "", err
 	}
 
-	raw, err := svc.lcu.Get(url)
+	resp, err := svc.lcu.Get(url)
+	if err != nil {
+		return "", err
+	} else if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return "", errors.New("bad response from server: " + resp.Status)
+	}
+
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return "", err
 	}
 
-	body, err := io.ReadAll(raw.Body)
-	if err != nil {
-		return "", err
-	}
 	return string(body), nil
 }
