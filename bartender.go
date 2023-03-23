@@ -14,6 +14,14 @@ import (
 	cu "github.com/abatewongc/bartender-bastion/client/clientutil"
 )
 
+var errNoSkinsFound = errors.New("no skins for champion! this is most definitely a bug, please contact the maintainers")
+
+var endpoints = Endpoints{
+	CurrentChamp: "/lol-champ-select/v1/current-champion",
+	SkinCarousel: "/lol-champ-select/v1/skin-carousel-skins",
+	MySelection:  "/lol-champ-select/v1/session/my-selection",
+}
+
 type SkinInfo struct {
 	ChampionId float64    `json:"championId"`
 	SkinName   string     `json:"skinName"`
@@ -21,10 +29,17 @@ type SkinInfo struct {
 	Chromas    []SkinInfo `json:"chromas"`
 }
 
+type Endpoints struct {
+	CurrentChamp string
+	SkinCarousel string
+	MySelection  string
+}
+
 type service struct {
 	tickrate       time.Duration
 	inGameTickrate time.Duration
 	skinBlacklist  map[float64]struct{} // Slice of skin IDs
+	endpoints      Endpoints
 	lcu            client.Client
 	isLocked       bool
 	hasRandomized  bool
@@ -35,6 +50,7 @@ func New(client client.Client, options ...func(*service)) *service {
 		tickrate:       time.Millisecond * 500,
 		inGameTickrate: time.Minute * 8,
 		skinBlacklist:  map[float64]struct{}{},
+		endpoints:      endpoints,
 		lcu:            client,
 	}
 
@@ -83,9 +99,8 @@ func (svc *service) Listen() {
 	}
 }
 
-// GET /lol-champ-select/v1/current-champion
 func (svc *service) isChampionLocked() bool {
-	url, _ := svc.lcu.URL(`/lol-champ-select/v1/current-champion`)
+	url, _ := svc.lcu.URL(svc.endpoints.CurrentChamp)
 	raw, _ := svc.lcu.Get(url)
 
 	rawBody, _ := io.ReadAll(raw.Body)
@@ -111,21 +126,22 @@ func (svc *service) canRandomize(body string) bool {
 }
 
 func (svc *service) selectRandomChampionSkin() error {
-	// ask LCU for the skin carousel
-	skins := svc.executeLCUGetRequest(`/lol-champ-select/v1/skin-carousel-skins`)
+	var err error
 
-	selected, err := svc.selectRandomChampionSkinFromList(skins)
+	skins, err := svc.getSkinCarousel()
 	if err != nil {
 		return err
 	}
 
-	req, err := svc.getPatchRequest(selected)
+	selectedSkinId, err := svc.randomSkinIdFromList(skins)
 	if err != nil {
 		return err
 	}
 
 	// select the skin
-	err = svc.executeLCUPatchRequest(`/lol-champ-select/v1/session/my-selection`, req)
+	req := gabs.New()
+	req.Set(selectedSkinId, "selectedSkinId")
+	err = svc.executeLCUPatchRequest(svc.endpoints.MySelection, req.String())
 	if err != nil {
 		return err
 	}
@@ -133,18 +149,18 @@ func (svc *service) selectRandomChampionSkin() error {
 	return nil
 }
 
-func (svc *service) selectRandomChampionSkinFromList(skins string) (int, error) {
+func (svc *service) randomSkinIdFromList(skins string) (int, error) {
 	blob, err := gabs.ParseJSON([]byte(skins))
 
 	if err != nil {
-		return -1, err
+		return 0, err
 	}
 
 	var skinInfo []SkinInfo
 	skinInfo = svc.extractSkins(blob, skinInfo)
 
 	if len(skinInfo) < 1 {
-		return -1, errors.New("no skins for champion! this is most definitely a bug, please contact the maintainers")
+		return 0, errNoSkinsFound
 	}
 
 	// Reroll until a skin not in the blacklist is rolled
@@ -215,38 +231,43 @@ func (svc *service) isSelectable(child *gabs.Container) bool {
 	return unlocked
 }
 
-func (svc *service) getPatchRequest(selected int) (string, error) {
-	req := gabs.New()
-	req.Set(selected, "selectedSkinId")
-
-	return req.String(), nil
-}
-
 func (svc *service) executeLCUPatchRequest(endpoint string, req string) error {
-	fmt.Printf("\nExecuting PATCH request: %s with payload %s\n", endpoint, req)
-	url, _ := svc.lcu.URL(endpoint)
+	var err error
+	fmt.Printf("\nExecuting PATCH request: %s with payload %s\n", svc.endpoints.MySelection, req)
+	url, err := svc.lcu.URL(svc.endpoints.MySelection)
+	if err != nil {
+		return err
+	}
 
 	request, err := svc.lcu.NewRequest("PATCH", url, []byte(req))
 	if err != nil {
 		return err
 	}
 
-	_, err = cu.HttpClient.Do(request)
+	resp, err := cu.HttpClient.Do(request)
 	if err != nil {
 		return err
+	} else if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return errors.New("bad response from server: " + resp.Status)
 	}
-	//fmt.Println(resp)
 
 	return nil
 }
 
-func (svc *service) executeLCUGetRequest(endpoint string) string {
-	//fmt.Println("Executing GET request:" + endpoint)
-	url, _ := svc.lcu.URL(endpoint)
-	raw, _ := svc.lcu.Get(url)
+func (svc *service) getSkinCarousel() (string, error) {
+	url, err := svc.lcu.URL(svc.endpoints.SkinCarousel)
+	if err != nil {
+		return "", err
+	}
 
-	rawBody, _ := io.ReadAll(raw.Body)
-	body := string(rawBody)
+	raw, err := svc.lcu.Get(url)
+	if err != nil {
+		return "", err
+	}
 
-	return body
+	body, err := io.ReadAll(raw.Body)
+	if err != nil {
+		return "", err
+	}
+	return string(body), nil
 }
