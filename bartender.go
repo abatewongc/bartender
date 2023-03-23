@@ -220,7 +220,12 @@ func (svc *service) extractSkins(blob *gabs.Container, skinInfos []SkinInfo) []S
 			chromas = svc.extractSkins(child.Path("childSkins"), chromas)
 		}
 
-		si := SkinInfo{SkinId: id, ChampionId: championId, SkinName: name, Chromas: chromas}
+		si := SkinInfo{
+			SkinId:     id,
+			ChampionId: championId,
+			SkinName:   name,
+			Chromas:    chromas,
+		}
 		skinInfos = append(skinInfos, si)
 	}
 	return skinInfos
