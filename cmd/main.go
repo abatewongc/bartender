@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/coltiebaby/bastion/client/league"
+	"github.com/abatewongc/bartender-bastion/client/league"
 )
 
 func main() {
