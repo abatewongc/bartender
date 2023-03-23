@@ -16,11 +16,11 @@ import (
 
 var errNoSkinsFound = errors.New("no skins for champion! this is most definitely a bug, please contact the maintainers")
 
-var endpoints = Endpoints{
-	CurrentChamp: "/lol-champ-select/v1/current-champion",
-	SkinCarousel: "/lol-champ-select/v1/skin-carousel-skins",
-	MySelection:  "/lol-champ-select/v1/session/my-selection",
-}
+var (
+	CurrentChampEndpoint = "/lol-champ-select/v1/current-champion"
+	SkinCarouselEndpoint = "/lol-champ-select/v1/skin-carousel-skins"
+	MySelectionEndpoint  = "/lol-champ-select/v1/session/my-selection"
+)
 
 type SkinInfo struct {
 	ChampionId float64    `json:"championId"`
@@ -50,8 +50,12 @@ func New(client client.Client, options ...func(*service)) *service {
 		tickrate:       time.Millisecond * 500,
 		inGameTickrate: time.Minute * 8,
 		skinBlacklist:  map[float64]struct{}{},
-		endpoints:      endpoints,
-		lcu:            client,
+		endpoints: Endpoints{
+			CurrentChamp: CurrentChampEndpoint,
+			SkinCarousel: SkinCarouselEndpoint,
+			MySelection:  MySelectionEndpoint,
+		},
+		lcu: client,
 	}
 
 	for _, option := range options {
