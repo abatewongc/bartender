@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"net/http"
 	"strings"
 	"time"
 
@@ -41,6 +42,7 @@ type service struct {
 	skinBlacklist  map[float64]struct{} // Slice of skin IDs
 	endpoints      Endpoints
 	lcu            client.Client
+	httpClient     http.Client
 	isLocked       bool
 	hasRandomized  bool
 }
@@ -55,7 +57,8 @@ func New(client client.Client, options ...func(*service)) *service {
 			SkinCarousel: SkinCarouselEndpoint,
 			MySelection:  MySelectionEndpoint,
 		},
-		lcu: client,
+		lcu:        client,
+		httpClient: *cu.HttpClient,
 	}
 
 	for _, option := range options {
@@ -80,6 +83,12 @@ func WithGameTickrate(t time.Duration) func(*service) {
 func WithBlacklist(bl map[float64]struct{}) func(*service) {
 	return func(svc *service) {
 		svc.skinBlacklist = bl
+	}
+}
+
+func WithHTTPClient(cl http.Client) func(*service) {
+	return func(svc *service) {
+		svc.httpClient = cl
 	}
 }
 
@@ -122,6 +131,8 @@ func (svc *service) isChampionLocked() (bool, error) {
 	if err != nil {
 		return false, err
 	}
+
+	fmt.Println(string(body))
 
 	return svc.canRandomize(string(body)), nil
 }
@@ -260,13 +271,12 @@ func (svc *service) selectSkin(skinId int) error {
 		return err
 	}
 
-	fmt.Printf("\nExecuting PATCH request: %s with payload %s\n", svc.endpoints.MySelection, req.String())
 	request, err := svc.lcu.NewRequest("PATCH", url, []byte(req.String()))
 	if err != nil {
 		return err
 	}
 
-	resp, err := cu.HttpClient.Do(request)
+	resp, err := svc.httpClient.Do(request)
 	if err != nil {
 		return err
 	} else if resp.StatusCode < 200 || resp.StatusCode > 299 {
