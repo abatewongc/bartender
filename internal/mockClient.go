@@ -5,6 +5,7 @@ import (
 	"net/url"
 )
 
+// MockClient mocks the client.Client interface
 type MockClient struct {
 	NewRequestResponse *http.Request
 	NewRequestError    error
