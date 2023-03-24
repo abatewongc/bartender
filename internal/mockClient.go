@@ -5,20 +5,29 @@ import (
 	"net/url"
 )
 
-type MockClient struct{}
+type MockClient struct {
+	NewRequestResponse *http.Request
+	NewRequestError    error
+	URLResponse        url.URL
+	URLError           error
+	GetResponse        *http.Response
+	GetError           error
+	PostResponse       *http.Response
+	PostError          error
+}
 
 func (mc MockClient) NewRequest(s string, u url.URL, b []byte) (*http.Request, error) {
-	return &http.Request{}, nil
+	return mc.NewRequestResponse, mc.NewRequestError
 }
 
 func (mc MockClient) URL(uri string) (url.URL, error) {
-	return url.URL{}, nil
+	return mc.URLResponse, mc.URLError
 }
 
 func (mc MockClient) Get(url.URL) (*http.Response, error) {
-	return &http.Response{}, nil
+	return mc.GetResponse, mc.GetError
 }
 
 func (mc MockClient) Post(url.URL, []byte) (*http.Response, error) {
-	return &http.Response{}, nil
+	return mc.PostResponse, mc.PostError
 }
