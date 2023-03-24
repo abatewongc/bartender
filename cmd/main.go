@@ -2,8 +2,7 @@ package main
 
 import (
 	"bartender"
-	"fmt"
-	"os"
+	"log"
 
 	"github.com/abatewongc/bartender-bastion/client/league"
 )
@@ -12,8 +11,7 @@ func main() {
 
 	client, err := league.NewFromExisting()
 	if err != nil {
-		fmt.Println("Error: ", err)
-		os.Exit(1)
+		log.Fatalf("startup error: %v", err)
 	}
 
 	app := bartender.New(client)

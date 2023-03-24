@@ -108,7 +108,7 @@ func (svc *service) Listen() {
 				fmt.Println(err)
 			}
 		} else if err != nil {
-			fmt.Printf("\nerror encountered: %v\n", err)
+			fmt.Printf("\n%v\n", err)
 		}
 		fmt.Print(".")
 	}
@@ -131,8 +131,6 @@ func (svc *service) isChampionLocked() (bool, error) {
 	if err != nil {
 		return false, err
 	}
-
-	fmt.Println(string(body))
 
 	return svc.canRandomize(string(body)), nil
 }

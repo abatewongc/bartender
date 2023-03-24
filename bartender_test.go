@@ -1,7 +1,7 @@
 package bartender
 
 import (
-	"bartender/internal"
+	"bartender/internal/mock"
 	"bytes"
 	"errors"
 	"io"
@@ -16,7 +16,7 @@ var errEmpty = errors.New("")
 
 // Test isChampionLocked properly returns true
 func TestIsChampionLocked(t *testing.T) {
-	client := internal.MockClient{
+	client := mock.Client{
 		URLResponse: url.URL{},
 		URLError:    nil,
 		GetResponse: &http.Response{
@@ -35,7 +35,7 @@ func TestIsChampionLocked(t *testing.T) {
 
 // Test isChampionLocked returns error on error fetching URL
 func TestIsChampionLockedErrorURLError(t *testing.T) {
-	client := internal.MockClient{
+	client := mock.Client{
 		URLResponse: url.URL{},
 		URLError:    errEmpty,
 	}
@@ -48,7 +48,7 @@ func TestIsChampionLockedErrorURLError(t *testing.T) {
 
 // Test isChampionLocked returns error on error sending get request
 func TestIsChampionLockedGetError(t *testing.T) {
-	client := internal.MockClient{
+	client := mock.Client{
 		GetResponse: &http.Response{
 			StatusCode: 200,
 			Body:       io.NopCloser(bytes.NewBuffer([]byte{})),
@@ -64,7 +64,7 @@ func TestIsChampionLockedGetError(t *testing.T) {
 
 // Test isChampionLocked returns error on a bad status code from the get request
 func TestIsChampionLockedGetBadStatusError(t *testing.T) {
-	client := internal.MockClient{
+	client := mock.Client{
 		GetResponse: &http.Response{
 			StatusCode: 404,
 			Body:       io.NopCloser(bytes.NewBuffer([]byte{})),
