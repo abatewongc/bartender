@@ -2,7 +2,6 @@ package bartender
 
 import (
 	"errors"
-	"fmt"
 	"io"
 	"math/rand"
 	"net/http"
@@ -10,6 +9,7 @@ import (
 	"time"
 
 	"github.com/Jeffail/gabs/v2"
+	"github.com/go-logr/logr"
 
 	"github.com/abatewongc/bartender-bastion/client"
 	cu "github.com/abatewongc/bartender-bastion/client/clientutil"
@@ -43,6 +43,7 @@ type service struct {
 	endpoints      Endpoints
 	lcu            client.Client
 	httpClient     http.Client
+	logger         logr.Logger
 	isLocked       bool
 	hasRandomized  bool
 }
@@ -59,6 +60,7 @@ func New(client client.Client, options ...func(*service)) *service {
 		},
 		lcu:        client,
 		httpClient: *cu.HttpClient,
+		logger:     logr.Logger{},
 	}
 
 	for _, option := range options {
@@ -92,8 +94,14 @@ func WithHTTPClient(cl http.Client) func(*service) {
 	}
 }
 
+func WithLogger(logger logr.Logger) func(*service) {
+	return func(svc *service) {
+		svc.logger = logger
+	}
+}
+
 func (svc *service) Listen() {
-	fmt.Print("Checking if champion is picked...")
+	svc.logger.Info("Running")
 	for range time.Tick(svc.tickrate) {
 		if isLocked, err := svc.isChampionLocked(); isLocked && !svc.isLocked {
 			svc.isLocked = true
@@ -105,12 +113,11 @@ func (svc *service) Listen() {
 			err := svc.selectRandomChampionSkin()
 			svc.isLocked = false
 			if err != nil {
-				fmt.Println(err)
+				svc.logger.Error(err, "error selecting random champion skin")
 			}
 		} else if err != nil {
-			fmt.Printf("\n%v\n", err)
+			svc.logger.Error(err, "encountered error while checking if champion was locked")
 		}
-		fmt.Print(".")
 	}
 }
 
