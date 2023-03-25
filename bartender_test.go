@@ -12,11 +12,11 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-// TODO: test selectRandomChampionSkin
+// TODO: selectRandomChampionSkin
 
 var errEmpty = errors.New("")
 
-// Test isChampionLocked properly returns true
+// isChampionLocked properly returns true
 func TestIsChampionLocked(t *testing.T) {
 	client := mock.Client{
 		URLResponse: url.URL{},
@@ -35,7 +35,7 @@ func TestIsChampionLocked(t *testing.T) {
 	assert.True(t, actual)
 }
 
-// Test isChampionLocked returns error on error fetching URL
+// isChampionLocked returns error on error fetching URL
 func TestIsChampionLockedErrorURLError(t *testing.T) {
 	client := mock.Client{
 		URLResponse: url.URL{},
@@ -48,7 +48,7 @@ func TestIsChampionLockedErrorURLError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// Test isChampionLocked returns error on error sending get request
+// isChampionLocked returns error on error sending get request
 func TestIsChampionLockedGetError(t *testing.T) {
 	client := mock.Client{
 		GetResponse: &http.Response{
@@ -64,7 +64,7 @@ func TestIsChampionLockedGetError(t *testing.T) {
 	assert.Error(t, err)
 }
 
-// Test isChampionLocked returns error on a bad status code from the get request
+// isChampionLocked returns error on a bad status code from the get request
 func TestIsChampionLockedGetBadStatusError(t *testing.T) {
 	client := mock.Client{
 		GetResponse: &http.Response{
