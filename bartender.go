@@ -36,13 +36,17 @@ type Endpoints struct {
 	MySelection  string
 }
 
+type HTTPClient interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
 type service struct {
 	tickrate       time.Duration
 	inGameTickrate time.Duration
 	skinBlacklist  map[float64]struct{} // Slice of skin IDs
 	endpoints      Endpoints
 	lcu            client.Client
-	httpClient     http.Client
+	httpClient     HTTPClient
 	logger         logr.Logger
 	isLocked       bool
 	hasRandomized  bool
@@ -59,7 +63,7 @@ func New(client client.Client, options ...func(*service)) *service {
 			MySelection:  MySelectionEndpoint,
 		},
 		lcu:        client,
-		httpClient: *cu.HttpClient,
+		httpClient: cu.HttpClient,
 		logger:     logr.Logger{},
 	}
 
@@ -88,7 +92,7 @@ func WithBlacklist(bl map[float64]struct{}) func(*service) {
 	}
 }
 
-func WithHTTPClient(cl http.Client) func(*service) {
+func WithHTTPClient(cl HTTPClient) func(*service) {
 	return func(svc *service) {
 		svc.httpClient = cl
 	}
