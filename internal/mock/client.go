@@ -18,27 +18,30 @@ type client struct {
 	PostResponse       *http.Response
 	PostError          error
 	CalledMethods      map[string]int
+	DoResponse         *http.Response
 	DoRequestRecorder  *http.Request
 }
 
 func Newclient() *client {
 	return &client{
-		NewRequestResponse: &http.Request{},
-		NewRequestError:    nil,
-		URLResponse:        url.URL{},
-		URLError:           nil,
-		GetResponse:        &http.Response{Body: io.NopCloser(bytes.NewBuffer([]byte{}))},
-		GetError:           nil,
-		PostResponse:       &http.Response{Body: io.NopCloser(bytes.NewBuffer([]byte{}))},
-		PostError:          nil,
-		CalledMethods:      map[string]int{},
-		DoRequestRecorder:  &http.Request{},
+		URLResponse:       url.URL{},
+		URLError:          nil,
+		GetResponse:       &http.Response{Body: io.NopCloser(bytes.NewBuffer([]byte{}))},
+		GetError:          nil,
+		PostResponse:      &http.Response{Body: io.NopCloser(bytes.NewBuffer([]byte{}))},
+		PostError:         nil,
+		CalledMethods:     map[string]int{},
+		DoRequestRecorder: &http.Request{},
 	}
 }
 
-func (c client) NewRequest(s string, u url.URL, b []byte) (*http.Request, error) {
+func (c client) NewRequest(method string, url url.URL, body []byte) (*http.Request, error) {
 	c.CalledMethods["NewRequest"]++
-	return c.NewRequestResponse, c.NewRequestError
+	return &http.Request{
+		Method: method,
+		URL:    &url,
+		Body:   io.NopCloser(bytes.NewBuffer(body)),
+	}, c.NewRequestError
 }
 
 func (c client) URL(uri string) (url.URL, error) {
@@ -59,8 +62,8 @@ func (c client) Post(url.URL, []byte) (*http.Response, error) {
 func (c client) Do(req *http.Request) (*http.Response, error) {
 	c.CalledMethods["Do"]++
 	switch req.Method {
-	case "Patch":
-		c.CalledMethods["Patch"]++
+	case "PATCH":
+		c.CalledMethods["PATCH"]++
 	}
-	return &http.Response{}, nil
+	return c.DoResponse, nil
 }
