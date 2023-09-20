@@ -45,6 +45,7 @@ type service struct {
 	hasRandomized  bool
 }
 
+// New returns a pointer to a new bartender service.
 func New(client client.Client, options ...func(*service)) *service {
 	svc := &service{
 		tickrate:       time.Millisecond * 500,
@@ -65,24 +66,29 @@ func New(client client.Client, options ...func(*service)) *service {
 	return svc
 }
 
+// WithTickrate is a functional option for configuring the tickrate on a new service.
 func WithTickrate(t time.Duration) func(*service) {
 	return func(svc *service) {
 		svc.tickrate = t
 	}
 }
 
+// WithGameTickrate is a functional option for configuring the inGameTickrate on a new service.
 func WithGameTickrate(t time.Duration) func(*service) {
 	return func(svc *service) {
 		svc.inGameTickrate = t
 	}
 }
 
+// WithBlacklist is a functional option for configuring the blacklist on a new service.
 func WithBlacklist(bl map[float64]struct{}) func(*service) {
 	return func(svc *service) {
 		svc.skinBlacklist = bl
 	}
 }
 
+// Listen starts the service indefinitely, polling for communications from the
+// League of Legends client at a polling rate of svc.tickrate.
 func (svc *service) Listen() {
 	fmt.Print("Checking if champion is picked...")
 	for range time.Tick(svc.tickrate) {
