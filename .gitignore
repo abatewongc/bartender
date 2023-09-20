@@ -8,3 +8,5 @@
 *.sum
 
 bin
+
+node_modules

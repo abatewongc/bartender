@@ -5,6 +5,7 @@ go 1.18
 require (
 	github.com/Jeffail/gabs/v2 v2.7.0
 	github.com/abatewongc/bartender-bastion v0.5.0
+	github.com/go-chi/chi v1.5.5
 )
 
 require (
